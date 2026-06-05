@@ -6,6 +6,7 @@ const authRoutes = require('./routes/auth.routes')
 const classRoutes = require('./routes/class.routes')
 const reservationRoutes = require('./routes/reservation.routes')
 const adminRoutes = require('./routes/admin.routes')
+const subscriptionRoutes = require('./routes/subscription.routes')
 
 const app = express()
 
@@ -16,6 +17,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/classes', classRoutes)
 app.use('/api/reservations', reservationRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/subscriptions', subscriptionRoutes)
 
 app.get('/', (req, res) => {
   res.json({ message: 'Gym System API funcionando ✅' })

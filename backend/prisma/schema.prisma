@@ -17,8 +17,52 @@ model User {
   verifyToken String?
   createdAt   DateTime @default(now())
 
-  reservations Reservation[]
-  classes      Class[]
+  reservations  Reservation[]
+  classes       Class[]
+  subscription  Subscription?
+  payments      Payment[]
+}
+
+model SubscriptionPlan {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  price       Float
+  type        PlanType
+  tokenLimit  Int?
+  description String?
+  createdAt   DateTime @default(now())
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id        Int              @id @default(autoincrement())
+  startDate DateTime         @default(now())
+  endDate   DateTime
+  status    SubscriptionStatus @default(ACTIVE)
+  tokens    Int?
+  createdAt DateTime         @default(now())
+
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id])
+
+  planId Int
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  payments Payment[]
+}
+
+model Payment {
+  id        Int      @id @default(autoincrement())
+  amount    Float
+  note      String?
+  createdAt DateTime @default(now())
+
+  userId         Int
+  user           User         @relation(fields: [userId], references: [id])
+
+  subscriptionId Int?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
 }
 
 model Class {
@@ -44,8 +88,8 @@ model Reservation {
   createdAt DateTime          @default(now())
   status    ReservationStatus @default(ACTIVE)
 
-  userId Int
-  user   User @relation(fields: [userId], references: [id])
+  userId  Int
+  user    User  @relation(fields: [userId], references: [id])
 
   classId Int
   class   Class @relation(fields: [classId], references: [id])
@@ -67,4 +111,16 @@ enum ClassStatus {
 enum ReservationStatus {
   ACTIVE
   CANCELLED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PlanType {
+  BASIC
+  PREMIUM
+  GOLD
 }

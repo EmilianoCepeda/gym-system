@@ -1,1 +1,286 @@
 @import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap');
+
+:root {
+  --yellow: #FFE000;
+  --yellow-dim: rgba(255, 220, 0, 0.15);
+  --yellow-glow: rgba(255, 220, 0, 0.08);
+  --bg-base: #0f0f0f;
+  --bg-surface: #141414;
+  --bg-card: #1a1a1a;
+  --bg-card-hover: #1f1f1f;
+  --border: rgba(255, 220, 0, 0.12);
+  --border-hover: #FFE000;
+  --text-primary: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.45);
+  --text-subtle: rgba(255, 255, 255, 0.25);
+  --font-display: 'Barlow Condensed', sans-serif;
+  --font-body: 'Barlow', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── TIPOGRAFÍA ── */
+.display-xl {
+  font-family: var(--font-display);
+  font-size: clamp(64px, 12vw, 140px);
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 0.9;
+  letter-spacing: -2px;
+}
+
+.display-lg {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 6vw, 80px);
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 0.95;
+  letter-spacing: -1px;
+}
+
+.display-md {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+}
+
+.display-sm {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.label-tag {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  color: var(--yellow);
+}
+
+.body-text {
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.text-yellow { color: var(--yellow); }
+.text-muted  { color: var(--text-muted); }
+.text-subtle { color: var(--text-subtle); }
+
+/* ── BOTONES ── */
+.btn-primary {
+  background: var(--yellow);
+  color: #0f0f0f;
+  padding: 16px 48px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  display: inline-block;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-primary:hover {
+  transform: scale(1.04);
+  box-shadow: 0 0 40px rgba(255, 220, 0, 0.25);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text-primary);
+  padding: 16px 48px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  text-decoration: none;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  display: inline-block;
+  transition: border-color 0.2s, color 0.2s, transform 0.2s;
+}
+
+.btn-outline:hover {
+  border-color: var(--yellow);
+  color: var(--yellow);
+  transform: scale(1.04);
+}
+
+.btn-danger {
+  background: transparent;
+  color: #ff4444;
+  padding: 10px 24px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 68, 68, 0.3);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-danger:hover {
+  background: rgba(255, 68, 68, 0.1);
+  border-color: #ff4444;
+}
+
+/* ── CARDS ── */
+.gym-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 32px;
+  transition: border-color 0.3s, transform 0.3s;
+}
+
+.gym-card:hover {
+  border-color: var(--yellow);
+  transform: translateY(-3px);
+}
+
+.gym-card-flat {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 24px;
+}
+
+/* ── BADGE ── */
+.badge {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  display: inline-block;
+}
+
+.badge-yellow {
+  background: var(--yellow-dim);
+  color: var(--yellow);
+  border: 1px solid rgba(255, 220, 0, 0.3);
+}
+
+.badge-green {
+  background: rgba(0, 200, 100, 0.1);
+  color: #00c864;
+  border: 1px solid rgba(0, 200, 100, 0.2);
+}
+
+.badge-red {
+  background: rgba(255, 68, 68, 0.1);
+  color: #ff4444;
+  border: 1px solid rgba(255, 68, 68, 0.2);
+}
+
+.badge-gray {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ── INPUTS ── */
+.gym-input {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  padding: 14px 18px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.gym-input:focus {
+  border-color: var(--yellow);
+}
+
+.gym-input::placeholder {
+  color: var(--text-subtle);
+}
+
+.gym-label {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 8px;
+}
+
+/* ── SECCIONES ── */
+.section {
+  padding: 100px 40px;
+}
+
+.section-dark {
+  background: var(--bg-surface);
+  padding: 100px 40px;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+/* ── DIVIDER ── */
+.yellow-line {
+  width: 60px;
+  height: 3px;
+  background: var(--yellow);
+  margin: 16px 0;
+}
+
+.yellow-line-center {
+  width: 60px;
+  height: 3px;
+  background: var(--yellow);
+  margin: 16px auto;
+}
+
+/* ── GRID RADIAL BG ── */
+.grid-bg {
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 80px, rgba(255,220,0,0.03) 80px, rgba(255,220,0,0.03) 81px),
+    repeating-linear-gradient(90deg, transparent, transparent 80px, rgba(255,220,0,0.03) 80px, rgba(255,220,0,0.03) 81px);
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--yellow-dim); }
+::-webkit-scrollbar-thumb:hover { background: var(--yellow); }
