@@ -7,9 +7,7 @@ const getMyReservations = async (req, res) => {
       include: {
         class: {
           include: {
-            coach: {
-              select: { id: true, name: true, email: true }
-            }
+            coach: { select: { id: true, name: true, email: true } }
           }
         }
       },
@@ -46,6 +44,23 @@ const createReservation = async (req, res) => {
       return res.status(400).json({ message: 'La clase está llena' })
     }
 
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId: req.user.id },
+      include: { plan: true }
+    })
+
+    if (!subscription || subscription.status !== 'ACTIVE') {
+      return res.status(403).json({ message: 'No tienes una suscripción activa' })
+    }
+
+    if (subscription.plan.type === 'BASIC') {
+      return res.status(403).json({ message: 'Tu plan Basic no permite reservar clases' })
+    }
+
+    if (subscription.plan.type === 'PREMIUM' && subscription.tokens <= 0) {
+      return res.status(403).json({ message: 'No tienes tokens disponibles' })
+    }
+
     const existing = await prisma.reservation.findUnique({
       where: {
         userId_classId: {
@@ -59,31 +74,33 @@ const createReservation = async (req, res) => {
       return res.status(400).json({ message: 'Ya tienes una reserva activa para esta clase' })
     }
 
+    let reservation
+
     if (existing && existing.status === 'CANCELLED') {
-      const updated = await prisma.reservation.update({
+      reservation = await prisma.reservation.update({
         where: { id: existing.id },
         data: { status: 'ACTIVE' }
       })
-
-      await prisma.class.update({
-        where: { id: parseInt(classId) },
-        data: { occupied: { increment: 1 } }
+    } else {
+      reservation = await prisma.reservation.create({
+        data: {
+          userId: req.user.id,
+          classId: parseInt(classId)
+        }
       })
-
-      return res.status(201).json(updated)
     }
-
-    const reservation = await prisma.reservation.create({
-      data: {
-        userId: req.user.id,
-        classId: parseInt(classId)
-      }
-    })
 
     await prisma.class.update({
       where: { id: parseInt(classId) },
       data: { occupied: { increment: 1 } }
     })
+
+    if (subscription.plan.type === 'PREMIUM') {
+      await prisma.subscription.update({
+        where: { userId: req.user.id },
+        data: { tokens: { decrement: 1 } }
+      })
+    }
 
     res.status(201).json(reservation)
   } catch (error) {
@@ -148,9 +165,7 @@ const getClassAttendees = async (req, res) => {
     const attendees = await prisma.reservation.findMany({
       where: { classId: parseInt(id), status: 'ACTIVE' },
       include: {
-        user: {
-          select: { id: true, name: true, email: true }
-        }
+        user: { select: { id: true, name: true, email: true } }
       }
     })
 

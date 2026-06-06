@@ -123,4 +123,22 @@ const getMe = async (req, res) => {
   }
 }
 
-module.exports = { register, verifyEmail, login, getMe }
+const updateProfile = async (req, res) => {
+  try {
+    const { name } = req.body
+    if (!name) {
+      return res.status(400).json({ message: 'El nombre es requerido' })
+    }
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { name },
+      select: { id: true, name: true, email: true, role: true, createdAt: true }
+    })
+    res.json(user)
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ message: 'Error interno del servidor' })
+  }
+}
+
+module.exports = { register, verifyEmail, login, getMe, updateProfile }

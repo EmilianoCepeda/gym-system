@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ui/ProtectedRoute'
-import Navbar from './components/ui/Navbar'
 
 import LandingPage from './pages/LandingPage'
 import Login from './pages/auth/Login'
@@ -20,26 +19,23 @@ const App = () => {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
-<Route path="/register" element={<Register />} />
-<Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
 
           <Route path="/client" element={
             <ProtectedRoute roles={['CLIENT']}>
-              <Navbar />
               <ClientDashboard />
             </ProtectedRoute>
           } />
 
           <Route path="/coach" element={
             <ProtectedRoute roles={['COACH']}>
-              <Navbar />
               <CoachDashboard />
             </ProtectedRoute>
           } />
 
           <Route path="/admin" element={
             <ProtectedRoute roles={['ADMIN']}>
-              <Navbar />
               <AdminDashboard />
             </ProtectedRoute>
           } />

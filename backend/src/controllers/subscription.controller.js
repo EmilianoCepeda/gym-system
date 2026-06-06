@@ -187,4 +187,17 @@ const addManualPayment = async (req, res) => {
   }
 }
 
-module.exports = { getPlans, createPlan, updatePlan, deletePlan, assignSubscription, grantTokens, getSubscriptions, getPayments, addManualPayment }
+const getMySubscription = async (req, res) => {
+  try {
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId: req.user.id },
+      include: { plan: true }
+    })
+    res.json(subscription || null)
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ message: 'Error interno del servidor' })
+  }
+}
+
+module.exports = { getPlans, createPlan, updatePlan, deletePlan, assignSubscription, grantTokens, getSubscriptions, getPayments, addManualPayment, getMySubscription }

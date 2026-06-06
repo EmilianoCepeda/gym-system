@@ -17,10 +17,13 @@ model User {
   verifyToken String?
   createdAt   DateTime @default(now())
 
-  reservations  Reservation[]
-  classes       Class[]
-  subscription  Subscription?
-  payments      Payment[]
+  reservations    Reservation[]
+  classes         Class[]
+  subscription    Subscription?
+  payments        Payment[]
+  progressEntries ProgressEntry[]
+  routinesAsCoach Routine[] @relation("CoachRoutines")
+  routinesAsClient Routine[] @relation("ClientRoutines")
 }
 
 model SubscriptionPlan {
@@ -95,6 +98,35 @@ model Reservation {
   class   Class @relation(fields: [classId], references: [id])
 
   @@unique([userId, classId])
+}
+
+model Routine {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  exercises   String
+  createdAt   DateTime @default(now())
+
+  coachId  Int
+  coach    User @relation("CoachRoutines", fields: [coachId], references: [id])
+
+  clientId Int
+  client   User @relation("ClientRoutines", fields: [clientId], references: [id])
+}
+
+model ProgressEntry {
+  id           Int      @id @default(autoincrement())
+  weight       Float?
+  height       Float?
+  fatIndex     Float?
+  muscleMass   Float?
+  targetWeight Float?
+  targetMuscle Float?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
 }
 
 enum Role {
