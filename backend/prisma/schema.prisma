@@ -17,13 +17,15 @@ model User {
   verifyToken String?
   createdAt   DateTime @default(now())
 
-  reservations    Reservation[]
-  classes         Class[]
-  subscription    Subscription?
-  payments        Payment[]
-  progressEntries ProgressEntry[]
-  routinesAsCoach Routine[] @relation("CoachRoutines")
-  routinesAsClient Routine[] @relation("ClientRoutines")
+  reservations     Reservation[]
+  classes          Class[]
+  subscription     Subscription?
+  payments         Payment[]
+  progressEntries  ProgressEntry[]
+  routinesAsCoach  Routine[]       @relation("CoachRoutines")
+  routinesAsClient Routine[]       @relation("ClientRoutines")
+  schedules        Schedule[]      @relation("CoachSchedules")
+  attendanceAsUser Attendance[]    @relation("AttendanceUser")
 }
 
 model SubscriptionPlan {
@@ -84,6 +86,7 @@ model Class {
   coach   User @relation(fields: [coachId], references: [id])
 
   reservations Reservation[]
+  attendances  Attendance[]
 }
 
 model Reservation {
@@ -127,6 +130,32 @@ model ProgressEntry {
 
   userId Int
   user   User @relation(fields: [userId], references: [id])
+}
+
+model Schedule {
+  id        Int      @id @default(autoincrement())
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  color     String   @default("#FFE000")
+  createdAt DateTime @default(now())
+
+  coachId Int
+  coach   User @relation("CoachSchedules", fields: [coachId], references: [id])
+}
+
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  attended  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId  Int
+  user    User  @relation("AttendanceUser", fields: [userId], references: [id])
+
+  classId Int
+  class   Class @relation(fields: [classId], references: [id])
+
+  @@unique([userId, classId])
 }
 
 enum Role {

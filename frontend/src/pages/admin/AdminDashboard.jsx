@@ -6,7 +6,8 @@ import {
   Users, UserCheck, DollarSign, LayoutDashboard,
   ChevronLeft, ChevronRight, Crown, Star, Zap,
   Plus, Gift, CreditCard, Clock, AlertTriangle,
-  BarChart2, Settings, LogOut, X, Check
+  BarChart2, Settings, LogOut, X, Check,
+  Calendar, Palette
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
@@ -23,6 +24,12 @@ const AdminDashboard = () => {
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const [schedules, setSchedules] = useState([])
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [scheduleForm, setScheduleForm] = useState({
+    coachId: '', dayOfWeek: '1', startTime: '', endTime: '', color: '#FFE000'
+  })
+
   // Modals
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [showPlanModal, setShowPlanModal] = useState(false)
@@ -36,18 +43,20 @@ const AdminDashboard = () => {
   const [tokenForm, setTokenForm] = useState({ userId: '', tokens: '' })
   const [paymentForm, setPaymentForm] = useState({ userId: '', amount: '', note: '' })
 
-  const fetchAll = async () => {
+    const fetchAll = async () => {
     try {
-      const [usersRes, plansRes, subsRes, paymentsRes] = await Promise.all([
+      const [usersRes, plansRes, subsRes, paymentsRes, schedulesRes] = await Promise.all([
         api.get('/admin/users'),
         api.get('/subscriptions/plans'),
         api.get('/subscriptions'),
         api.get('/subscriptions/payments'),
+        api.get('/schedules'),
       ])
       setUsers(usersRes.data)
       setPlans(plansRes.data)
       setSubscriptions(subsRes.data)
       setPayments(paymentsRes.data)
+      setSchedules(schedulesRes.data)
     } catch { toast.error('Error al cargar datos') }
     finally { setLoading(false) }
   }
@@ -100,6 +109,7 @@ const AdminDashboard = () => {
     { id: 'subscriptions',  label: 'Suscripciones',    icon: <CreditCard size={20} /> },
     { id: 'plans',          label: 'Planes',           icon: <Crown size={20} /> },
     { id: 'revenue',        label: 'Ingresos',         icon: <DollarSign size={20} /> },
+    { id: 'schedules',      label: 'Horarios',         icon: <Calendar size={20} /> },
   ]
 
   const handleAssign = async (e) => {
@@ -403,26 +413,91 @@ const AdminDashboard = () => {
           {activeTab === 'employees' && (
             <div>
               <h2 className="display-sm" style={{ marginBottom: '24px' }}>EMPLEADOS</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                {users.filter(u => u.role === 'COACH' || u.role === 'ADMIN').map(u => (
-                  <div key={u.id} className="gym-card">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-                      <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--yellow-dim)', border: '2px solid var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '18px', color: 'var(--yellow)' }}>{u.name[0].toUpperCase()}</span>
-                      </div>
-                      <div>
-                        <p style={{ fontSize: '15px', fontWeight: 600, margin: 0 }}>{u.name}</p>
-                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{u.email}</p>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className={`badge ${u.role === 'ADMIN' ? 'badge-yellow' : 'badge-gray'}`}>{u.role}</span>
-                      <span className={`badge ${u.verified ? 'badge-green' : 'badge-red'}`}>{u.verified ? 'Activo' : 'Inactivo'}</span>
-                    </div>
-                  </div>
-                ))}
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-surface)' }}>
+                      {['Empleado', 'Correo', 'Rol', 'Estado', 'Acciones'].map(h => (
+                        <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, letterSpacing: '2px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.filter(u => u.role === 'COACH' || u.role === 'ADMIN').map(u => {
+                      const isCurrentUser = u.id === user?.id
+                      return (
+                        <tr key={u.id} style={{ borderTop: '1px solid var(--border)' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--yellow-dim)', border: '2px solid var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '15px', color: 'var(--yellow)' }}>{u.name[0].toUpperCase()}</span>
+                              </div>
+                              <div>
+                                <p style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>{u.name}</p>
+                                {isCurrentUser && <p style={{ fontSize: '11px', color: 'var(--yellow)', margin: '2px 0 0', textTransform: 'uppercase', letterSpacing: '1px' }}>Tu cuenta</p>}
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--text-muted)' }}>{u.email}</td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <select
+                              value={u.role}
+                              onChange={e => handleChangeRole(u.id, e.target.value)}
+                              disabled={isCurrentUser}
+                              style={{
+                                background: 'var(--bg-surface)',
+                                border: '1px solid var(--border)',
+                                color: isCurrentUser ? 'var(--text-subtle)' : 'var(--text-primary)',
+                                padding: '6px 10px',
+                                fontSize: '12px',
+                                fontFamily: 'var(--font-body)',
+                                outline: 'none',
+                                cursor: isCurrentUser ? 'not-allowed' : 'pointer',
+                                opacity: isCurrentUser ? 0.7 : 1
+                              }}
+                            >
+                              <option value="CLIENT">CLIENT</option>
+                              <option value="COACH">COACH</option>
+                              <option value="ADMIN">ADMIN</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span className={`badge ${u.verified ? 'badge-green' : 'badge-red'}`}>{u.verified ? 'Activo' : 'Inactivo'}</span>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <button
+                              onClick={() => handleToggleVerified(u.id, u.verified)}
+                              disabled={isCurrentUser}
+                              style={{
+                                background: u.verified ? 'rgba(255,68,68,0.08)' : 'var(--yellow-dim)',
+                                border: `1px solid ${u.verified ? 'rgba(255,68,68,0.35)' : 'rgba(255,220,0,0.3)'}`,
+                                color: u.verified ? '#ff4444' : 'var(--yellow)',
+                                padding: '7px 12px',
+                                fontSize: '11px',
+                                cursor: isCurrentUser ? 'not-allowed' : 'pointer',
+                                fontFamily: 'var(--font-display)',
+                                fontWeight: 700,
+                                letterSpacing: '1px',
+                                textTransform: 'uppercase',
+                                opacity: isCurrentUser ? 0.5 : 1
+                              }}
+                            >
+                              {u.verified ? 'Desactivar cuenta' : 'Activar cuenta'}
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
                 {users.filter(u => u.role === 'COACH' || u.role === 'ADMIN').length === 0 && (
-                  <p style={{ color: 'var(--text-subtle)', fontSize: '14px' }}>Sin empleados registrados</p>
+                  <div style={{ padding: '32px', textAlign: 'center' }}>
+                    <UserCheck size={48} color="rgba(255,255,255,0.06)" style={{ margin: '0 auto 12px', display: 'block' }} />
+                    <p style={{ color: 'var(--text-subtle)', fontSize: '14px', margin: 0 }}>Sin empleados registrados</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -611,6 +686,54 @@ const AdminDashboard = () => {
               </div>
             </div>
           )}
+          {/* ── HORARIOS ── */}
+{activeTab === 'schedules' && (
+  <div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <h2 className="display-sm">HORARIOS DE COACHES</h2>
+      <button className="btn-primary" style={{ padding: '10px 24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setShowScheduleModal(true)}>
+        <Plus size={16} /> Asignar turno
+      </button>
+    </div>
+
+    {/* Vista semanal por coach */}
+    {users.filter(u => u.role === 'COACH').map(coach => {
+      const coachSchedules = schedules.filter(s => s.coachId === coach.id)
+      const coachColor = coachSchedules[0]?.color || '#FFE000'
+      return (
+        <div key={coach.id} style={{ marginBottom: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: coachColor }} />
+            <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '16px', margin: 0, letterSpacing: '2px', textTransform: 'uppercase' }}>{coach.name}</h3>
+            <span className="badge badge-yellow">{coachSchedules.length} turnos</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
+            {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map((day, i) => {
+              const daySchedules = coachSchedules.filter(s => s.dayOfWeek === i)
+              return (
+                <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', padding: '12px', minHeight: '100px' }}>
+                  <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '12px', letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 8px', textAlign: 'center' }}>{day}</p>
+                  {daySchedules.map(s => (
+                    <div key={s.id} style={{ background: s.color, padding: '6px 8px', marginBottom: '6px', position: 'relative' }}>
+                      <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '11px', color: '#0f0f0f', margin: 0 }}>{s.startTime}</p>
+                      <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '10px', color: 'rgba(0,0,0,0.6)', margin: 0 }}>{s.endTime}</p>
+                      <button onClick={async () => { await api.delete(`/schedules/${s.id}`); fetchAll() }} style={{ position: 'absolute', top: '2px', right: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(0,0,0,0.4)', fontSize: '10px', lineHeight: 1, padding: '2px' }}>✕</button>
+                    </div>
+                  ))}
+                  {daySchedules.length === 0 && <p style={{ fontSize: '11px', color: 'var(--text-subtle)', textAlign: 'center', marginTop: '8px' }}>—</p>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    })}
+    {users.filter(u => u.role === 'COACH').length === 0 && (
+      <p style={{ color: 'var(--text-subtle)', fontSize: '14px' }}>Sin coaches registrados</p>
+    )}
+  </div>
+)}
+
         </div>
       </main>
 
@@ -741,6 +864,64 @@ const AdminDashboard = () => {
                 <input type="text" value={paymentForm.note} onChange={e => setPaymentForm({ ...paymentForm, note: e.target.value })} className="gym-input" placeholder="Ej. Pago en efectivo" />
               </div>
               <button type="submit" className="btn-primary" style={{ width: '100%', textAlign: 'center' }}>REGISTRAR PAGO</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+     {/*)}*/}
+
+      {/* ── MODAL: HORARIO ── */}
+      {showScheduleModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', padding: '40px', width: '460px', maxWidth: '90vw' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+              <h3 className="display-sm">ASIGNAR TURNO</h3>
+              <button onClick={() => setShowScheduleModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              try {
+                await api.post('/schedules', scheduleForm)
+                toast.success('Turno asignado')
+                setShowScheduleModal(false)
+                setScheduleForm({ coachId: '', dayOfWeek: '1', startTime: '', endTime: '', color: '#FFE000' })
+                fetchAll()
+              } catch (err) { toast.error(err.response?.data?.message || 'Error') }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <label className="gym-label">Coach</label>
+                <select value={scheduleForm.coachId} onChange={e => setScheduleForm({ ...scheduleForm, coachId: e.target.value })} required className="gym-input" style={{ cursor: 'pointer' }}>
+                  <option value="">Selecciona un coach</option>
+                  {users.filter(u => u.role === 'COACH').map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="gym-label">Día de la semana</label>
+                <select value={scheduleForm.dayOfWeek} onChange={e => setScheduleForm({ ...scheduleForm, dayOfWeek: e.target.value })} required className="gym-input" style={{ cursor: 'pointer' }}>
+                  {['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].map((d, i) => (
+                    <option key={i} value={i}>{d}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label className="gym-label">Hora inicio</label>
+                  <input type="time" value={scheduleForm.startTime} onChange={e => setScheduleForm({ ...scheduleForm, startTime: e.target.value })} required className="gym-input" />
+                </div>
+                <div>
+                  <label className="gym-label">Hora fin</label>
+                  <input type="time" value={scheduleForm.endTime} onChange={e => setScheduleForm({ ...scheduleForm, endTime: e.target.value })} required className="gym-input" />
+                </div>
+              </div>
+              <div>
+                <label className="gym-label">Color del coach</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <input type="color" value={scheduleForm.color} onChange={e => setScheduleForm({ ...scheduleForm, color: e.target.value })} style={{ width: '48px', height: '40px', border: '1px solid var(--border)', background: 'none', cursor: 'pointer', padding: '2px' }} />
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Cada coach debe tener un color único para identificarlo en el horario</span>
+                </div>
+              </div>
+              <button type="submit" className="btn-primary" style={{ width: '100%', textAlign: 'center' }}>ASIGNAR TURNO</button>
             </form>
           </div>
         </div>

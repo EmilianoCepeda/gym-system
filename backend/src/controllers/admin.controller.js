@@ -2,7 +2,9 @@ const prisma = require('../lib/prisma')
 
 const getUsers = async (req, res) => {
   try {
+    const isCoach = req.user?.role === 'COACH'
     const users = await prisma.user.findMany({
+      where: isCoach ? { role: 'CLIENT' } : undefined,
       select: {
         id: true,
         name: true,
