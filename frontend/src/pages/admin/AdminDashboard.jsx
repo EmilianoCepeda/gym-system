@@ -104,7 +104,7 @@ const AdminDashboard = () => {
 
   const navItems = [
     { id: 'dashboard',      label: 'Dashboard',       icon: <LayoutDashboard size={20} /> },
-    { id: 'users',          label: 'Usuarios',         icon: <Users size={20} /> },
+    { id: 'users',          label: 'Clientes',         icon: <Users size={20} /> },
     { id: 'employees',      label: 'Empleados',        icon: <UserCheck size={20} /> },
     { id: 'subscriptions',  label: 'Suscripciones',    icon: <CreditCard size={20} /> },
     { id: 'plans',          label: 'Planes',           icon: <Crown size={20} /> },
@@ -349,11 +349,11 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* ── USUARIOS ── */}
+          {/* ── CLIENTES ── */}
           {activeTab === 'users' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h2 className="display-sm">USUARIOS</h2>
+                <h2 className="display-sm">CLIENTES</h2>
                 <button className="btn-primary" style={{ padding: '10px 24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => setShowAssignModal(true)}>
                   <Plus size={16} /> Asignar suscripción
                 </button>

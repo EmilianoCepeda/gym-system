@@ -1,12 +1,18 @@
 const prisma = require('../lib/prisma')
+const {
+  assertEnum,
+  cleanString,
+  parseDate,
+  parsePositiveInt
+} = require('../lib/validators')
 
-const getClasses = async (req, res) => {
+const getClasses = async (_req, res) => {
   try {
     const classes = await prisma.class.findMany({
       where: { status: 'ACTIVE' },
       include: {
         coach: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true }
         }
       },
       orderBy: { date: 'asc' }
@@ -20,25 +26,17 @@ const getClasses = async (req, res) => {
 
 const getClassById = async (req, res) => {
   try {
-    const { id } = req.params
+    const id = parsePositiveInt(req.params.id, 'id')
     const gymClass = await prisma.class.findUnique({
-      where: { id: parseInt(id) },
+      where: { id },
       include: {
         coach: {
-          select: { id: true, name: true, email: true }
-        },
-        reservations: {
-          where: { status: 'ACTIVE' },
-          include: {
-            user: {
-              select: { id: true, name: true, email: true }
-            }
-          }
+          select: { id: true, name: true }
         }
       }
     })
 
-    if (!gymClass) {
+    if (!gymClass || gymClass.status !== 'ACTIVE') {
       return res.status(404).json({ message: 'Clase no encontrada' })
     }
 
@@ -51,7 +49,9 @@ const getClassById = async (req, res) => {
 
 const createClass = async (req, res) => {
   try {
-    const { name, description, date, startTime, endTime, maxCapacity } = req.body
+    const name = cleanString(req.body.name, { max: 100 })
+    const description = cleanString(req.body.description, { max: 1000 })
+    const { date, startTime, endTime, maxCapacity } = req.body
 
     if (!name || !description || !date || !startTime || !endTime || !maxCapacity) {
       return res.status(400).json({ message: 'Todos los campos son requeridos' })
@@ -61,10 +61,10 @@ const createClass = async (req, res) => {
       data: {
         name,
         description,
-        date: new Date(date),
-        startTime: new Date(startTime),
-        endTime: new Date(endTime),
-        maxCapacity: parseInt(maxCapacity),
+        date: parseDate(date, 'date'),
+        startTime: parseDate(startTime, 'startTime'),
+        endTime: parseDate(endTime, 'endTime'),
+        maxCapacity: parsePositiveInt(maxCapacity, 'maxCapacity'),
         coachId: req.user.id
       }
     })
@@ -72,16 +72,18 @@ const createClass = async (req, res) => {
     res.status(201).json(gymClass)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
 const updateClass = async (req, res) => {
   try {
-    const { id } = req.params
-    const { name, description, date, startTime, endTime, maxCapacity, status } = req.body
+    const id = parsePositiveInt(req.params.id, 'id')
+    const name = cleanString(req.body.name, { max: 100 })
+    const description = cleanString(req.body.description, { max: 1000 })
+    const { date, startTime, endTime, maxCapacity, status } = req.body
 
-    const gymClass = await prisma.class.findUnique({ where: { id: parseInt(id) } })
+    const gymClass = await prisma.class.findUnique({ where: { id } })
 
     if (!gymClass) {
       return res.status(404).json({ message: 'Clase no encontrada' })
@@ -92,30 +94,29 @@ const updateClass = async (req, res) => {
     }
 
     const updated = await prisma.class.update({
-      where: { id: parseInt(id) },
+      where: { id },
       data: {
         ...(name && { name }),
         ...(description && { description }),
-        ...(date && { date: new Date(date) }),
-        ...(startTime && { startTime: new Date(startTime) }),
-        ...(endTime && { endTime: new Date(endTime) }),
-        ...(maxCapacity && { maxCapacity: parseInt(maxCapacity) }),
-        ...(status && { status })
+        ...(date && { date: parseDate(date, 'date') }),
+        ...(startTime && { startTime: parseDate(startTime, 'startTime') }),
+        ...(endTime && { endTime: parseDate(endTime, 'endTime') }),
+        ...(maxCapacity && { maxCapacity: parsePositiveInt(maxCapacity, 'maxCapacity') }),
+        ...(status && { status: assertEnum(status, ['ACTIVE', 'CANCELLED'], 'status') })
       }
     })
 
     res.json(updated)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
 const deleteClass = async (req, res) => {
   try {
-    const { id } = req.params
-
-    const gymClass = await prisma.class.findUnique({ where: { id: parseInt(id) } })
+    const id = parsePositiveInt(req.params.id, 'id')
+    const gymClass = await prisma.class.findUnique({ where: { id } })
 
     if (!gymClass) {
       return res.status(404).json({ message: 'Clase no encontrada' })
@@ -126,14 +127,14 @@ const deleteClass = async (req, res) => {
     }
 
     await prisma.class.update({
-      where: { id: parseInt(id) },
+      where: { id },
       data: { status: 'CANCELLED' }
     })
 
     res.json({ message: 'Clase cancelada exitosamente' })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 

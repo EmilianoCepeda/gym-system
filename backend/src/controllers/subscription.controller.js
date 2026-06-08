@@ -1,6 +1,7 @@
 const prisma = require('../lib/prisma')
+const { assertEnum, cleanString, parseFiniteNumber, parsePositiveInt } = require('../lib/validators')
 
-const getPlans = async (req, res) => {
+const getPlans = async (_req, res) => {
   try {
     const plans = await prisma.subscriptionPlan.findMany({
       orderBy: { price: 'asc' }
@@ -14,72 +15,78 @@ const getPlans = async (req, res) => {
 
 const createPlan = async (req, res) => {
   try {
-    const { name, price, type, tokenLimit, description } = req.body
-    if (!name || !price || !type) {
+    const name = cleanString(req.body.name, { max: 100 })
+    const price = parseFiniteNumber(req.body.price, 'price', { min: 0 })
+    const type = assertEnum(req.body.type, ['BASIC', 'PREMIUM', 'GOLD'], 'type')
+    const tokenLimit = req.body.tokenLimit ? parsePositiveInt(req.body.tokenLimit, 'tokenLimit') : null
+    const description = cleanString(req.body.description, { max: 1000 })
+    if (!name) {
       return res.status(400).json({ message: 'Nombre, precio y tipo son requeridos' })
     }
     const plan = await prisma.subscriptionPlan.create({
-      data: { name, price: parseFloat(price), type, tokenLimit: tokenLimit ? parseInt(tokenLimit) : null, description }
+      data: { name, price, type, tokenLimit, description: description || null }
     })
     res.status(201).json(plan)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
 const updatePlan = async (req, res) => {
   try {
-    const { id } = req.params
-    const { name, price, tokenLimit, description } = req.body
+    const id = parsePositiveInt(req.params.id, 'id')
+    const name = cleanString(req.body.name, { max: 100 })
+    const description = cleanString(req.body.description, { max: 1000 })
     const plan = await prisma.subscriptionPlan.update({
-      where: { id: parseInt(id) },
+      where: { id },
       data: {
         ...(name && { name }),
-        ...(price && { price: parseFloat(price) }),
-        ...(tokenLimit !== undefined && { tokenLimit: tokenLimit ? parseInt(tokenLimit) : null }),
-        ...(description !== undefined && { description })
+        ...(req.body.price && { price: parseFiniteNumber(req.body.price, 'price', { min: 0 }) }),
+        ...(req.body.tokenLimit !== undefined && {
+          tokenLimit: req.body.tokenLimit ? parsePositiveInt(req.body.tokenLimit, 'tokenLimit') : null
+        }),
+        ...(req.body.description !== undefined && { description: description || null })
       }
     })
     res.json(plan)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
 const deletePlan = async (req, res) => {
   try {
-    const { id } = req.params
-    await prisma.subscriptionPlan.delete({ where: { id: parseInt(id) } })
+    const id = parsePositiveInt(req.params.id, 'id')
+    await prisma.subscriptionPlan.delete({ where: { id } })
     res.json({ message: 'Plan eliminado' })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
 const assignSubscription = async (req, res) => {
   try {
-    const { userId, planId, durationDays } = req.body
-    if (!userId || !planId || !durationDays) {
-      return res.status(400).json({ message: 'userId, planId y durationDays son requeridos' })
-    }
+    const userId = parsePositiveInt(req.body.userId, 'userId')
+    const planId = parsePositiveInt(req.body.planId, 'planId')
+    const durationDays = parsePositiveInt(req.body.durationDays, 'durationDays')
 
-    const plan = await prisma.subscriptionPlan.findUnique({ where: { id: parseInt(planId) } })
+    const plan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } })
     if (!plan) return res.status(404).json({ message: 'Plan no encontrado' })
 
     const endDate = new Date()
-    endDate.setDate(endDate.getDate() + parseInt(durationDays))
+    endDate.setDate(endDate.getDate() + durationDays)
 
-    const existing = await prisma.subscription.findUnique({ where: { userId: parseInt(userId) } })
+    const existing = await prisma.subscription.findUnique({ where: { userId } })
 
     let subscription
     if (existing) {
       subscription = await prisma.subscription.update({
-        where: { userId: parseInt(userId) },
+        where: { userId },
         data: {
-          planId: parseInt(planId),
+          planId,
           startDate: new Date(),
           endDate,
           status: 'ACTIVE',
@@ -90,8 +97,8 @@ const assignSubscription = async (req, res) => {
     } else {
       subscription = await prisma.subscription.create({
         data: {
-          userId: parseInt(userId),
-          planId: parseInt(planId),
+          userId,
+          planId,
           endDate,
           tokens: plan.type === 'PREMIUM' ? (plan.tokenLimit || 10) : null
         },
@@ -101,44 +108,42 @@ const assignSubscription = async (req, res) => {
 
     await prisma.payment.create({
       data: {
-        userId: parseInt(userId),
+        userId,
         subscriptionId: subscription.id,
         amount: plan.price,
-        note: `Suscripción ${plan.name} — ${durationDays} días`
+        note: `Suscripcion ${plan.name} - ${durationDays} dias`
       }
     })
 
     res.status(201).json(subscription)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
 const grantTokens = async (req, res) => {
   try {
-    const { userId, tokens, note } = req.body
-    if (!userId || !tokens) {
-      return res.status(400).json({ message: 'userId y tokens son requeridos' })
-    }
+    const userId = parsePositiveInt(req.body.userId, 'userId')
+    const tokens = parsePositiveInt(req.body.tokens, 'tokens')
 
-    const subscription = await prisma.subscription.findUnique({ where: { userId: parseInt(userId) } })
-    if (!subscription) return res.status(404).json({ message: 'El usuario no tiene suscripción activa' })
+    const subscription = await prisma.subscription.findUnique({ where: { userId } })
+    if (!subscription) return res.status(404).json({ message: 'El usuario no tiene suscripcion activa' })
     if (subscription.tokens === null) return res.status(400).json({ message: 'Este plan no usa tokens' })
 
     const updated = await prisma.subscription.update({
-      where: { userId: parseInt(userId) },
-      data: { tokens: { increment: parseInt(tokens) } }
+      where: { userId },
+      data: { tokens: { increment: tokens } }
     })
 
     res.json({ message: `${tokens} tokens otorgados`, tokens: updated.tokens })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
-const getSubscriptions = async (req, res) => {
+const getSubscriptions = async (_req, res) => {
   try {
     const subscriptions = await prisma.subscription.findMany({
       include: {
@@ -154,7 +159,7 @@ const getSubscriptions = async (req, res) => {
   }
 }
 
-const getPayments = async (req, res) => {
+const getPayments = async (_req, res) => {
   try {
     const payments = await prisma.payment.findMany({
       include: {
@@ -172,18 +177,17 @@ const getPayments = async (req, res) => {
 
 const addManualPayment = async (req, res) => {
   try {
-    const { userId, amount, note } = req.body
-    if (!userId || !amount) {
-      return res.status(400).json({ message: 'userId y amount son requeridos' })
-    }
+    const userId = parsePositiveInt(req.body.userId, 'userId')
+    const amount = parseFiniteNumber(req.body.amount, 'amount', { min: 0 })
+    const note = cleanString(req.body.note, { max: 1000 })
     const payment = await prisma.payment.create({
-      data: { userId: parseInt(userId), amount: parseFloat(amount), note },
+      data: { userId, amount, note: note || null },
       include: { user: { select: { id: true, name: true, email: true } } }
     })
     res.status(201).json(payment)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 

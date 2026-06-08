@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma')
+const { parsePositiveInt } = require('../lib/validators')
 
 const getMyReservations = async (req, res) => {
   try {
@@ -7,7 +8,7 @@ const getMyReservations = async (req, res) => {
       include: {
         class: {
           include: {
-            coach: { select: { id: true, name: true, email: true } }
+            coach: { select: { id: true, name: true } }
           }
         }
       },
@@ -22,136 +23,115 @@ const getMyReservations = async (req, res) => {
 
 const createReservation = async (req, res) => {
   try {
-    const { classId } = req.body
+    const classId = parsePositiveInt(req.body.classId, 'classId')
 
-    if (!classId) {
-      return res.status(400).json({ message: 'classId es requerido' })
-    }
+    const reservation = await prisma.$transaction(async (tx) => {
+      const gymClass = await tx.class.findUnique({ where: { id: classId } })
 
-    const gymClass = await prisma.class.findUnique({
-      where: { id: parseInt(classId) }
-    })
+      if (!gymClass) throw new Error('Clase no encontrada')
+      if (gymClass.status === 'CANCELLED') throw new Error('Esta clase esta cancelada')
+      if (gymClass.occupied >= gymClass.maxCapacity) throw new Error('La clase esta llena')
 
-    if (!gymClass) {
-      return res.status(404).json({ message: 'Clase no encontrada' })
-    }
-
-    if (gymClass.status === 'CANCELLED') {
-      return res.status(400).json({ message: 'Esta clase está cancelada' })
-    }
-
-    if (gymClass.occupied >= gymClass.maxCapacity) {
-      return res.status(400).json({ message: 'La clase está llena' })
-    }
-
-    const subscription = await prisma.subscription.findUnique({
-      where: { userId: req.user.id },
-      include: { plan: true }
-    })
-
-    if (!subscription || subscription.status !== 'ACTIVE') {
-      return res.status(403).json({ message: 'No tienes una suscripción activa' })
-    }
-
-    if (subscription.plan.type === 'BASIC') {
-      return res.status(403).json({ message: 'Tu plan Basic no permite reservar clases' })
-    }
-
-    if (subscription.plan.type === 'PREMIUM' && subscription.tokens <= 0) {
-      return res.status(403).json({ message: 'No tienes tokens disponibles' })
-    }
-
-    const existing = await prisma.reservation.findUnique({
-      where: {
-        userId_classId: {
-          userId: req.user.id,
-          classId: parseInt(classId)
-        }
-      }
-    })
-
-    if (existing && existing.status === 'ACTIVE') {
-      return res.status(400).json({ message: 'Ya tienes una reserva activa para esta clase' })
-    }
-
-    let reservation
-
-    if (existing && existing.status === 'CANCELLED') {
-      reservation = await prisma.reservation.update({
-        where: { id: existing.id },
-        data: { status: 'ACTIVE' }
-      })
-    } else {
-      reservation = await prisma.reservation.create({
-        data: {
-          userId: req.user.id,
-          classId: parseInt(classId)
-        }
-      })
-    }
-
-    await prisma.class.update({
-      where: { id: parseInt(classId) },
-      data: { occupied: { increment: 1 } }
-    })
-
-    if (subscription.plan.type === 'PREMIUM') {
-      await prisma.subscription.update({
+      const subscription = await tx.subscription.findUnique({
         where: { userId: req.user.id },
-        data: { tokens: { decrement: 1 } }
+        include: { plan: true }
       })
-    }
+
+      if (!subscription || subscription.status !== 'ACTIVE') {
+        throw new Error('No tienes una suscripcion activa')
+      }
+
+      if (subscription.plan.type === 'BASIC') {
+        throw new Error('Tu plan Basic no permite reservar clases')
+      }
+
+      if (subscription.plan.type === 'PREMIUM' && subscription.tokens <= 0) {
+        throw new Error('No tienes tokens disponibles')
+      }
+
+      const existing = await tx.reservation.findUnique({
+        where: {
+          userId_classId: {
+            userId: req.user.id,
+            classId
+          }
+        }
+      })
+
+      if (existing && existing.status === 'ACTIVE') {
+        throw new Error('Ya tienes una reserva activa para esta clase')
+      }
+
+      const result = existing
+        ? await tx.reservation.update({
+          where: { id: existing.id },
+          data: { status: 'ACTIVE' }
+        })
+        : await tx.reservation.create({
+          data: {
+            userId: req.user.id,
+            classId
+          }
+        })
+
+      await tx.class.update({
+        where: { id: classId },
+        data: { occupied: { increment: 1 } }
+      })
+
+      if (subscription.plan.type === 'PREMIUM') {
+        await tx.subscription.update({
+          where: { userId: req.user.id },
+          data: { tokens: { decrement: 1 } }
+        })
+      }
+
+      return result
+    })
 
     res.status(201).json(reservation)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
 const cancelReservation = async (req, res) => {
   try {
-    const { id } = req.params
+    const id = parsePositiveInt(req.params.id, 'id')
 
-    const reservation = await prisma.reservation.findUnique({
-      where: { id: parseInt(id) }
-    })
+    await prisma.$transaction(async (tx) => {
+      const reservation = await tx.reservation.findFirst({
+        where: { id, userId: req.user.id }
+      })
 
-    if (!reservation) {
-      return res.status(404).json({ message: 'Reserva no encontrada' })
-    }
+      if (!reservation) throw new Error('Reserva no encontrada')
+      if (reservation.status === 'CANCELLED') throw new Error('La reserva ya esta cancelada')
 
-    if (reservation.userId !== req.user.id) {
-      return res.status(403).json({ message: 'No tienes permiso para cancelar esta reserva' })
-    }
+      await tx.reservation.update({
+        where: { id },
+        data: { status: 'CANCELLED' }
+      })
 
-    if (reservation.status === 'CANCELLED') {
-      return res.status(400).json({ message: 'La reserva ya está cancelada' })
-    }
-
-    await prisma.reservation.update({
-      where: { id: parseInt(id) },
-      data: { status: 'CANCELLED' }
-    })
-
-    await prisma.class.update({
-      where: { id: reservation.classId },
-      data: { occupied: { decrement: 1 } }
+      await tx.class.update({
+        where: { id: reservation.classId },
+        data: { occupied: { decrement: 1 } }
+      })
     })
 
     res.json({ message: 'Reserva cancelada exitosamente' })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
 const getClassAttendees = async (req, res) => {
   try {
-    const { id } = req.params
+    const id = parsePositiveInt(req.params.id, 'id')
 
     const gymClass = await prisma.class.findUnique({
-      where: { id: parseInt(id) }
+      where: { id }
     })
 
     if (!gymClass) {
@@ -163,7 +143,7 @@ const getClassAttendees = async (req, res) => {
     }
 
     const attendees = await prisma.reservation.findMany({
-      where: { classId: parseInt(id), status: 'ACTIVE' },
+      where: { classId: id, status: 'ACTIVE' },
       include: {
         user: { select: { id: true, name: true, email: true } }
       }
@@ -172,7 +152,7 @@ const getClassAttendees = async (req, res) => {
     res.json(attendees)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 

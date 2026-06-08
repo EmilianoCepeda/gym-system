@@ -1,10 +1,9 @@
 const prisma = require('../lib/prisma')
+const { assertEnum, parseBoolean, parsePositiveInt } = require('../lib/validators')
 
-const getUsers = async (req, res) => {
+const getUsers = async (_req, res) => {
   try {
-    const isCoach = req.user?.role === 'COACH'
     const users = await prisma.user.findMany({
-      where: isCoach ? { role: 'CLIENT' } : undefined,
       select: {
         id: true,
         name: true,
@@ -24,14 +23,18 @@ const getUsers = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    const { id } = req.params
+    const id = parsePositiveInt(req.params.id, 'id')
     const { role, verified } = req.body
 
+    if (id === req.user.id && role && role !== 'ADMIN') {
+      return res.status(400).json({ message: 'No puedes quitarte tu propio rol de admin' })
+    }
+
     const user = await prisma.user.update({
-      where: { id: parseInt(id) },
+      where: { id },
       data: {
-        ...(role && { role }),
-        ...(verified !== undefined && { verified })
+        ...(role && { role: assertEnum(role, ['CLIENT', 'COACH', 'ADMIN'], 'role') }),
+        ...(verified !== undefined && { verified: parseBoolean(verified, 'verified') })
       },
       select: {
         id: true,
@@ -45,7 +48,7 @@ const updateUser = async (req, res) => {
     res.json(user)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 

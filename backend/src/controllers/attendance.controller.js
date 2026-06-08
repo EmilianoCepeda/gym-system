@@ -1,11 +1,12 @@
 const prisma = require('../lib/prisma')
+const { parseBoolean, parsePositiveInt } = require('../lib/validators')
 
 const getClassAttendance = async (req, res) => {
   try {
-    const { classId } = req.params
+    const classId = parsePositiveInt(req.params.classId, 'classId')
 
     const gymClass = await prisma.class.findUnique({
-      where: { id: parseInt(classId) }
+      where: { id: classId }
     })
 
     if (!gymClass) {
@@ -17,14 +18,14 @@ const getClassAttendance = async (req, res) => {
     }
 
     const reservations = await prisma.reservation.findMany({
-      where: { classId: parseInt(classId), status: 'ACTIVE' },
+      where: { classId, status: 'ACTIVE' },
       include: {
         user: { select: { id: true, name: true, email: true } }
       }
     })
 
     const attendances = await prisma.attendance.findMany({
-      where: { classId: parseInt(classId) }
+      where: { classId }
     })
 
     const result = reservations.map(r => {
@@ -40,20 +41,18 @@ const getClassAttendance = async (req, res) => {
     res.json(result)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
 const markAttendance = async (req, res) => {
   try {
-    const { classId, userId, attended } = req.body
-
-    if (!classId || !userId || attended === undefined) {
-      return res.status(400).json({ message: 'classId, userId y attended son requeridos' })
-    }
+    const classId = parsePositiveInt(req.body.classId, 'classId')
+    const userId = parsePositiveInt(req.body.userId, 'userId')
+    const attended = parseBoolean(req.body.attended, 'attended')
 
     const gymClass = await prisma.class.findUnique({
-      where: { id: parseInt(classId) }
+      where: { id: classId }
     })
 
     if (!gymClass) {
@@ -64,17 +63,25 @@ const markAttendance = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permiso' })
     }
 
+    const reservation = await prisma.reservation.findFirst({
+      where: { classId, userId, status: 'ACTIVE' }
+    })
+
+    if (!reservation) {
+      return res.status(400).json({ message: 'El usuario no tiene reserva activa para esta clase' })
+    }
+
     const attendance = await prisma.attendance.upsert({
       where: {
         userId_classId: {
-          userId: parseInt(userId),
-          classId: parseInt(classId)
+          userId,
+          classId
         }
       },
       update: { attended },
       create: {
-        userId: parseInt(userId),
-        classId: parseInt(classId),
+        userId,
+        classId,
         attended
       }
     })
@@ -82,7 +89,7 @@ const markAttendance = async (req, res) => {
     res.json(attendance)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 

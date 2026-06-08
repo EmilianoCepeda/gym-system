@@ -52,7 +52,7 @@ const CoachDashboard = () => {
     try {
       const [classesRes, clientsRes, routinesRes, scheduleRes, statsRes] = await Promise.all([
         api.get('/classes'),
-        api.get('/admin/users'),
+        api.get('/admin/clients'),
         api.get('/routines/coach'),
         api.get('/schedules'),
         api.get('/attendance/stats'),

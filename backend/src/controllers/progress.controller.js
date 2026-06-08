@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma')
+const { cleanString, parseOptionalFiniteNumber, parsePositiveInt } = require('../lib/validators')
 
 const getMyProgress = async (req, res) => {
   try {
@@ -15,42 +16,47 @@ const getMyProgress = async (req, res) => {
 
 const createProgressEntry = async (req, res) => {
   try {
-    const { weight, height, fatIndex, muscleMass, targetWeight, targetMuscle, notes } = req.body
+    const weight = parseOptionalFiniteNumber(req.body.weight, 'weight', { min: 0 })
+    const height = parseOptionalFiniteNumber(req.body.height, 'height', { min: 0 })
+    const fatIndex = parseOptionalFiniteNumber(req.body.fatIndex, 'fatIndex', { min: 0 })
+    const muscleMass = parseOptionalFiniteNumber(req.body.muscleMass, 'muscleMass', { min: 0 })
+    const targetWeight = parseOptionalFiniteNumber(req.body.targetWeight, 'targetWeight', { min: 0 })
+    const targetMuscle = parseOptionalFiniteNumber(req.body.targetMuscle, 'targetMuscle', { min: 0 })
+    const notes = cleanString(req.body.notes, { max: 1000 })
 
-    if (!weight && !height && !fatIndex && !muscleMass) {
+    if (weight === null && height === null && fatIndex === null && muscleMass === null) {
       return res.status(400).json({ message: 'Ingresa al menos un dato de progreso' })
     }
 
     const entry = await prisma.progressEntry.create({
       data: {
         userId: req.user.id,
-        weight: weight ? parseFloat(weight) : null,
-        height: height ? parseFloat(height) : null,
-        fatIndex: fatIndex ? parseFloat(fatIndex) : null,
-        muscleMass: muscleMass ? parseFloat(muscleMass) : null,
-        targetWeight: targetWeight ? parseFloat(targetWeight) : null,
-        targetMuscle: targetMuscle ? parseFloat(targetMuscle) : null,
+        weight,
+        height,
+        fatIndex,
+        muscleMass,
+        targetWeight,
+        targetMuscle,
         notes: notes || null
       }
     })
     res.status(201).json(entry)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
 const deleteProgressEntry = async (req, res) => {
   try {
-    const { id } = req.params
-    const entry = await prisma.progressEntry.findUnique({ where: { id: parseInt(id) } })
+    const id = parsePositiveInt(req.params.id, 'id')
+    const entry = await prisma.progressEntry.findFirst({ where: { id, userId: req.user.id } })
     if (!entry) return res.status(404).json({ message: 'Registro no encontrado' })
-    if (entry.userId !== req.user.id) return res.status(403).json({ message: 'No tienes permiso' })
-    await prisma.progressEntry.delete({ where: { id: parseInt(id) } })
+    await prisma.progressEntry.delete({ where: { id } })
     res.json({ message: 'Registro eliminado' })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 

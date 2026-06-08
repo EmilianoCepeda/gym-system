@@ -3,24 +3,38 @@ const jwt = require('jsonwebtoken')
 const crypto = require('crypto')
 const prisma = require('../lib/prisma')
 const { sendVerificationEmail } = require('../lib/email')
+const { cleanString, isValidEmail } = require('../lib/validators')
+
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
+const PASSWORD_SALT_ROUNDS = Number.parseInt(process.env.PASSWORD_SALT_ROUNDS || '12', 10)
 
 const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body
+    const name = cleanString(req.body.name, { max: 80 })
+    const email = cleanString(req.body.email, { max: 160, lower: true })
+    const password = typeof req.body.password === 'string' ? req.body.password : ''
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Todos los campos son requeridos' })
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } })
-    if (existingUser) {
-      return res.status(400).json({ message: 'El correo ya está registrado' })
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: 'Correo invalido' })
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10)
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'La contrasena debe tener al menos 8 caracteres' })
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email } })
+    if (existingUser) {
+      return res.status(400).json({ message: 'El correo ya esta registrado' })
+    }
+
+    const hashedPassword = await bcrypt.hash(password, PASSWORD_SALT_ROUNDS)
     const verifyToken = crypto.randomBytes(32).toString('hex')
 
-    const user = await prisma.user.create({
+    await prisma.user.create({
       data: {
         name,
         email,
@@ -42,16 +56,16 @@ const register = async (req, res) => {
 
 const verifyEmail = async (req, res) => {
   try {
-    const { token } = req.query
+    const token = cleanString(req.query.token, { max: 64 })
 
-    if (!token) {
+    if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
       return res.status(400).json({ message: 'Token requerido' })
     }
 
     const user = await prisma.user.findFirst({ where: { verifyToken: token } })
 
     if (!user) {
-      return res.status(400).json({ message: 'Token inválido' })
+      return res.status(400).json({ message: 'Token invalido' })
     }
 
     await prisma.user.update({
@@ -59,7 +73,7 @@ const verifyEmail = async (req, res) => {
       data: { verified: true, verifyToken: null }
     })
 
-    res.json({ message: 'Cuenta verificada exitosamente. Ya puedes iniciar sesión.' })
+    res.json({ message: 'Cuenta verificada exitosamente. Ya puedes iniciar sesion.' })
   } catch (error) {
     console.error(error)
     res.status(500).json({ message: 'Error interno del servidor' })
@@ -68,10 +82,15 @@ const verifyEmail = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body
+    const email = cleanString(req.body.email, { max: 160, lower: true })
+    const password = typeof req.body.password === 'string' ? req.body.password : ''
 
     if (!email || !password) {
-      return res.status(400).json({ message: 'Correo y contraseña requeridos' })
+      return res.status(400).json({ message: 'Correo y contrasena requeridos' })
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: 'Correo invalido' })
     }
 
     const user = await prisma.user.findUnique({ where: { email } })
@@ -81,7 +100,7 @@ const login = async (req, res) => {
     }
 
     if (!user.verified) {
-      return res.status(401).json({ message: 'Debes verificar tu correo antes de iniciar sesión' })
+      return res.status(401).json({ message: 'Debes verificar tu correo antes de iniciar sesion' })
     }
 
     const validPassword = await bcrypt.compare(password, user.password)
@@ -92,7 +111,7 @@ const login = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, name: user.name },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: JWT_EXPIRES_IN }
     )
 
     res.json({
@@ -125,7 +144,7 @@ const getMe = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { name } = req.body
+    const name = cleanString(req.body.name, { max: 80 })
     if (!name) {
       return res.status(400).json({ message: 'El nombre es requerido' })
     }

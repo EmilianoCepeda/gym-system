@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma')
+const { cleanString, parsePositiveInt } = require('../lib/validators')
 
 const getMyRoutines = async (req, res) => {
   try {
@@ -34,17 +35,34 @@ const getCoachRoutines = async (req, res) => {
 
 const createRoutine = async (req, res) => {
   try {
-    const { title, description, exercises, clientId } = req.body
-    if (!title || !exercises || !clientId) {
-      return res.status(400).json({ message: 'Título, ejercicios y cliente son requeridos' })
+    const title = cleanString(req.body.title, { max: 120 })
+    const description = cleanString(req.body.description, { max: 1000 })
+    const exercises = cleanString(req.body.exercises, { max: 10000 })
+    const clientId = parsePositiveInt(req.body.clientId, 'clientId')
+
+    if (!title || !exercises) {
+      return res.status(400).json({ message: 'Titulo, ejercicios y cliente son requeridos' })
     }
+
+    const allowedClient = await prisma.reservation.findFirst({
+      where: {
+        userId: clientId,
+        status: 'ACTIVE',
+        class: { coachId: req.user.id }
+      }
+    })
+
+    if (!allowedClient) {
+      return res.status(403).json({ message: 'No tienes permiso para asignar rutinas a este cliente' })
+    }
+
     const routine = await prisma.routine.create({
       data: {
         title,
-        description,
+        description: description || null,
         exercises,
         coachId: req.user.id,
-        clientId: parseInt(clientId)
+        clientId
       },
       include: {
         client: { select: { id: true, name: true, email: true } }
@@ -53,43 +71,43 @@ const createRoutine = async (req, res) => {
     res.status(201).json(routine)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
 const updateRoutine = async (req, res) => {
   try {
-    const { id } = req.params
-    const { title, description, exercises } = req.body
-    const routine = await prisma.routine.findUnique({ where: { id: parseInt(id) } })
+    const id = parsePositiveInt(req.params.id, 'id')
+    const title = cleanString(req.body.title, { max: 120 })
+    const description = cleanString(req.body.description, { max: 1000 })
+    const exercises = cleanString(req.body.exercises, { max: 10000 })
+    const routine = await prisma.routine.findFirst({ where: { id, coachId: req.user.id } })
     if (!routine) return res.status(404).json({ message: 'Rutina no encontrada' })
-    if (routine.coachId !== req.user.id) return res.status(403).json({ message: 'No tienes permiso' })
     const updated = await prisma.routine.update({
-      where: { id: parseInt(id) },
+      where: { id },
       data: {
         ...(title && { title }),
-        ...(description !== undefined && { description }),
+        ...(req.body.description !== undefined && { description: description || null }),
         ...(exercises && { exercises })
       }
     })
     res.json(updated)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
 const deleteRoutine = async (req, res) => {
   try {
-    const { id } = req.params
-    const routine = await prisma.routine.findUnique({ where: { id: parseInt(id) } })
+    const id = parsePositiveInt(req.params.id, 'id')
+    const routine = await prisma.routine.findFirst({ where: { id, coachId: req.user.id } })
     if (!routine) return res.status(404).json({ message: 'Rutina no encontrada' })
-    if (routine.coachId !== req.user.id) return res.status(403).json({ message: 'No tienes permiso' })
-    await prisma.routine.delete({ where: { id: parseInt(id) } })
+    await prisma.routine.delete({ where: { id } })
     res.json({ message: 'Rutina eliminada' })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Error interno del servidor' })
+    res.status(400).json({ message: error.message || 'Solicitud invalida' })
   }
 }
 
