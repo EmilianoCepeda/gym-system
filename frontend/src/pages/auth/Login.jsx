@@ -1,14 +1,25 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../lib/axios'
 import toast from 'react-hot-toast'
+
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 500)
+  useEffect(() => {
+    const handle = () => setIsMobile(window.innerWidth < 500)
+    window.addEventListener('resize', handle)
+    return () => window.removeEventListener('resize', handle)
+  }, [])
+  return isMobile
+}
 
 const Login = () => {
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -37,63 +48,74 @@ const Login = () => {
       display: 'flex', alignItems: 'stretch',
     }}>
 
-      {/* ── LADO IZQUIERDO — decorativo ── */}
-      <div className="grid-bg" style={{
-        flex: 1, background: 'var(--bg-surface)',
-        display: 'flex', flexDirection: 'column',
-        justifyContent: 'space-between', padding: '48px',
-        position: 'relative', overflow: 'hidden',
-      }}>
-        {/* glow */}
-        <div style={{
-          position: 'absolute', top: '20%', left: '10%',
-          width: '500px', height: '500px', borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,220,0,0.08) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }} />
+      {/* ── LADO IZQUIERDO — decorativo — oculto en móvil ── */}
+      {!isMobile && (
+        <div className="grid-bg" style={{
+          flex: 1, background: 'var(--bg-surface)',
+          display: 'flex', flexDirection: 'column',
+          justifyContent: 'space-between', padding: '48px',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', top: '20%', left: '10%',
+            width: '500px', height: '500px', borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,220,0,0.08) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }} />
 
-        {/* Logo */}
-        <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ width: '24px', height: '24px', background: 'var(--yellow)', clipPath: 'polygon(50% 0%, 100% 100%, 0% 100%)' }} />
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '18px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--text-primary)' }}>
-            ASTRAEUS GYM
-          </span>
-        </Link>
+          <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '24px', height: '24px', background: 'var(--yellow)', clipPath: 'polygon(50% 0%, 100% 100%, 0% 100%)' }} />
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '18px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--text-primary)' }}>
+              ASTRAEUS GYM
+            </span>
+          </Link>
 
-        {/* Texto central */}
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <p className="label-tag" style={{ marginBottom: '16px' }}>Tu portal de entrenamiento</p>
-          <h2 className="display-lg" style={{ marginBottom: '24px' }}>
-            PUSH YOUR<br />
-            <span className="text-yellow">LIMITS</span>
-          </h2>
-          <p className="body-text" style={{ maxWidth: '360px' }}>
-            Accede a tu cuenta para reservar clases, ver tu historial y conectar con tus coaches.
-          </p>
-
-          {/* Stats */}
-          <div style={{ display: 'flex', gap: '40px', marginTop: '48px' }}>
-            {[{ n: '500+', l: 'Miembros' }, { n: '30+', l: 'Clases' }, { n: '10+', l: 'Coaches' }].map((s, i) => (
-              <div key={i} style={{ borderLeft: '3px solid var(--yellow)', paddingLeft: '16px' }}>
-                <p style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: '28px', margin: 0, lineHeight: 1 }}>{s.n}</p>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', margin: '4px 0 0' }}>{s.l}</p>
-              </div>
-            ))}
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <p className="label-tag" style={{ marginBottom: '16px' }}>Tu portal de entrenamiento</p>
+            <h2 className="display-lg" style={{ marginBottom: '24px' }}>
+              PUSH YOUR<br />
+              <span className="text-yellow">LIMITS</span>
+            </h2>
+            <p className="body-text" style={{ maxWidth: '360px' }}>
+              Accede a tu cuenta para reservar clases, ver tu historial y conectar con tus coaches.
+            </p>
+            <div style={{ display: 'flex', gap: '40px', marginTop: '48px' }}>
+              {[{ n: '500+', l: 'Miembros' }, { n: '30+', l: 'Clases' }, { n: '10+', l: 'Coaches' }].map((s, i) => (
+                <div key={i} style={{ borderLeft: '3px solid var(--yellow)', paddingLeft: '16px' }}>
+                  <p style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: '28px', margin: 0, lineHeight: 1 }}>{s.n}</p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', margin: '4px 0 0' }}>{s.l}</p>
+                </div>
+              ))}
+            </div>
           </div>
+
+          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '13px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--text-subtle)' }}>
+            © 2026 ASTRAEUS GYM
+          </p>
         </div>
+      )}
 
-        {/* Bottom quote */}
-        <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '13px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--text-subtle)' }}>
-          © 2026 ASTRAEUS GYM
-        </p>
-      </div>
-
-      {/* ── LADO DERECHO — formulario ── */}
+      {/* ── FORMULARIO ── */}
       <div style={{
-        width: '480px', display: 'flex', flexDirection: 'column',
-        justifyContent: 'center', padding: '64px 56px',
+        width: isMobile ? '100%' : '480px',
+        display: 'flex', flexDirection: 'column',
+        justifyContent: 'center',
+        padding: isMobile ? '40px 24px' : '64px 56px',
         background: 'var(--bg-base)',
       }}>
+
+        {/* Logo visible solo en móvil */}
+        {isMobile && (
+          <div style={{ marginBottom: '40px' }}>
+            <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '22px', height: '22px', background: 'var(--yellow)', clipPath: 'polygon(50% 0%, 100% 100%, 0% 100%)' }} />
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '16px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--text-primary)' }}>
+                ASTRAEUS GYM
+              </span>
+            </Link>
+          </div>
+        )}
+
         <p className="label-tag" style={{ marginBottom: '12px' }}>Bienvenido de nuevo</p>
         <h1 className="display-md" style={{ marginBottom: '8px' }}>INICIAR<br />SESIÓN</h1>
         <div className="yellow-line" style={{ marginBottom: '40px' }} />
@@ -111,7 +133,6 @@ const Login = () => {
               className="gym-input"
             />
           </div>
-
           <div>
             <label className="gym-label">Contraseña</label>
             <input
@@ -124,7 +145,6 @@ const Login = () => {
               className="gym-input"
             />
           </div>
-
           <button
             type="submit"
             disabled={loading}
